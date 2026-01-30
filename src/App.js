@@ -13,6 +13,7 @@ import {
 import { 
   getAuth, 
   signInAnonymously, 
+  signInWithCustomToken, 
   onAuthStateChanged 
 } from 'firebase/auth';
 import { 
@@ -49,7 +50,7 @@ import {
   User
 } from 'lucide-react';
 
-// --- Konfigurasi Firebase (DIKEMASKINI: Terus ke Kunci Anda supaya Go Live) ---
+// --- Konfigurasi Firebase (Safe for Vercel/Local) ---
 const firebaseConfig = {
   apiKey: "AIzaSyDw1t_UrMRvEHCyKFQIzMmlP7w6feSIos0",
   authDomain: "jadual-oncall.firebaseapp.com",
@@ -67,7 +68,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-// --- PILIHAN 14 WARNA ---
+// --- KONFIGURASI WARNA & KATEGORI ---
 const COLOR_OPTIONS = [
   { id: 'indigo', bg: 'bg-indigo-600', border: 'border-indigo-600', light: 'bg-indigo-50 text-indigo-700' },
   { id: 'orange', bg: 'bg-orange-500', border: 'border-orange-500', light: 'bg-orange-50 text-orange-700' },
@@ -91,7 +92,7 @@ const MOVEMENT_TYPES = [
   { id: 'Kursus', label: 'Kursus', color: 'bg-indigo-500', light: 'bg-indigo-50 text-indigo-700', icon: <BookOpen size={14} /> },
   { id: 'Off', label: 'Off', color: 'bg-slate-500', light: 'bg-slate-100 text-slate-700', icon: <Coffee size={14} /> },
   { id: 'Mesyuarat', label: 'Mesyuarat', color: 'bg-blue-600', light: 'bg-blue-50 text-blue-700', icon: <Users size={14} /> },
-  { id: 'Temujanji', label: 'Temujanji', color: 'bg-teal-500', light: 'bg-teal-700 text-white', icon: <CheckCircle2 size={14} /> },
+  { id: 'Temujanji', label: 'Temujanji', color: 'bg-teal-500', light: 'bg-teal-50 text-teal-700', icon: <CheckCircle2 size={14} /> },
   { id: 'Cuti Bersalin', label: 'Cuti Bersalin', color: 'bg-pink-500', light: 'bg-pink-50 text-pink-700', icon: <Plus size={14} /> },
   { id: 'Cuti Belajar', label: 'Cuti Belajar', color: 'bg-purple-600', light: 'bg-purple-50 text-purple-700', icon: <BookOpen size={14} /> },
 ];
@@ -140,78 +141,58 @@ const App = () => {
 
   const headerVisible = !isPrintMode;
 
-  // --- Auth Setup (Rule 3) ---
+  // --- Auth Setup ---
   useEffect(() => {
     const initAuth = async () => {
       try {
-        await signInAnonymously(auth); // DIKEMASKINI: Login automatik untuk kemudahan staf
+        await signInAnonymously(auth);
       } catch (error) {
-        console.error("Firebase Authentication error:", error);
+        console.error("Authentication error:", error);
       }
     };
     initAuth();
-    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribeAuth();
   }, []);
 
-  // --- Data Fetching Setup (Rule 1 & Auth Guard) ---
+  // --- Data Fetching ---
   useEffect(() => {
     if (!user) return; 
 
-    const unsubStaff = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'staff'), 
-      (snapshot) => setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
-      (err) => console.error("Firestore staff listener error:", err)
-    );
+    const unsubStaff = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'staff'), (snapshot) => {
+      setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
-    const unsubShifts = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'shifts'), 
-      (snapshot) => {
-        const shiftMap = {};
-        snapshot.docs.forEach(doc => { shiftMap[doc.id] = doc.data(); });
-        setShifts(shiftMap);
-      },
-      (err) => console.error("Firestore shifts listener error:", err)
-    );
+    const unsubShifts = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shifts'), (snapshot) => {
+      const shiftMap = {};
+      snapshot.docs.forEach(doc => { shiftMap[doc.id] = doc.data(); });
+      setShifts(shiftMap);
+    });
 
-    const unsubShiftDef = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), 
-      (snapshot) => {
-        let defs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (defs.length === 0) setupDefaultShifts();
-        const sorted = defs.sort((a,b) => (a.order || 0) - (b.order || 0));
-        setShiftDefinitions(sorted);
-        if (selectedPrintShifts.length === 0) setSelectedPrintShifts(sorted.map(sh => sh.id));
-      },
-      (err) => console.error("Firestore shiftDef listener error:", err)
-    );
+    const unsubShiftDef = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), (snapshot) => {
+      let defs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (defs.length === 0) setupDefaultShifts();
+      const sorted = defs.sort((a,b) => (a.order || 0) - (b.order || 0));
+      setShiftDefinitions(sorted);
+      if (selectedPrintShifts.length === 0) setSelectedPrintShifts(sorted.map(sh => sh.id));
+    });
 
-    const unsubSettings = onSnapshot(
-      doc(db, 'artifacts', appId, 'public', 'data', 'appSettings', 'global'), 
-      (docSnap) => docSnap.exists() && setAppSettings(docSnap.data()),
-      (err) => console.error("Firestore settings listener error:", err)
-    );
+    const unsubSettings = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'appSettings', 'global'), (docSnap) => {
+      if (docSnap.exists()) setAppSettings(docSnap.data());
+    });
 
-    const unsubHolidays = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'holidays'), 
-      (snapshot) => {
-        const holidayMap = {};
-        snapshot.docs.forEach(doc => { 
-          const data = doc.data();
-          if (data.date) holidayMap[data.date] = { id: doc.id, ...data }; 
-        });
-        setHolidays(holidayMap);
-      },
-      (err) => console.error("Firestore holidays listener error:", err)
-    );
+    const unsubHolidays = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'holidays'), (snapshot) => {
+      const holidayMap = {};
+      snapshot.docs.forEach(doc => { 
+        const data = doc.data();
+        if (data.date) holidayMap[data.date] = { id: doc.id, ...data }; 
+      });
+      setHolidays(holidayMap);
+    });
 
-    const unsubMovements = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'movements'), 
-      (snapshot) => setMovements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
-      (err) => console.error("Firestore movements listener error:", err)
-    );
+    const unsubMovements = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'movements'), (snapshot) => {
+      setMovements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
     return () => {
       unsubStaff(); unsubShifts(); unsubShiftDef(); unsubSettings(); unsubHolidays(); unsubMovements();
@@ -225,9 +206,7 @@ const App = () => {
       { label: 'Evening Shift', time: '2PM-11PM', color: 'orange', order: 2 },
       { label: 'Lunch Call PF/PRP', time: '1PM-2PM', color: 'emerald', order: 3 },
     ];
-    for (const d of defaults) {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), d);
-    }
+    for (const d of defaults) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), d);
   };
 
   // --- Handlers ---
@@ -288,22 +267,18 @@ const App = () => {
   const saveStaff = async (e) => {
     e.preventDefault();
     if (!user || !newStaff.name.trim()) return;
-    try {
-      const data = { name: String(newStaff.name).toUpperCase(), phone: String(newStaff.phone || ''), unit: String(newStaff.unit || ''), updatedAt: new Date().toISOString() };
-      if (newStaff.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', newStaff.id), data);
-      else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'staff'), { ...data, createdAt: new Date().toISOString() });
-      setNewStaff({ name: '', phone: '', unit: '', id: null }); setShowStaffModal(false); showStatus("Data staf disimpan!", "success");
-    } catch (err) { showStatus("Ralat semasa simpan staf", "error"); }
+    const data = { name: String(newStaff.name).toUpperCase(), phone: String(newStaff.phone || ''), unit: String(newStaff.unit || ''), updatedAt: new Date().toISOString() };
+    if (newStaff.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff', newStaff.id), data);
+    else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'staff'), { ...data, createdAt: new Date().toISOString() });
+    setNewStaff({ name: '', phone: '', unit: '', id: null }); setShowStaffModal(false); showStatus("Data staf disimpan!", "success");
   };
 
   const saveShiftDef = async (e) => {
     e.preventDefault();
     if (!user) return;
-    try {
-      if (editingShiftDef.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions', editingShiftDef.id), editingShiftDef);
-      else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), { ...editingShiftDef, order: shiftDefinitions.length + 1 });
-      setShowShiftDefModal(false); setEditingShiftDef(null); showStatus("Syif disimpan!", "success");
-    } catch (err) { showStatus("Ralat semasa simpan syif", "error"); }
+    if (editingShiftDef.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions', editingShiftDef.id), editingShiftDef);
+    else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), { ...editingShiftDef, order: shiftDefinitions.length + 1 });
+    setShowShiftDefModal(false); setEditingShiftDef(null); showStatus("Syif disimpan!", "success");
   };
 
   const toggleStaffOnShift = async (dateStr, typeId, staffId) => {
@@ -323,7 +298,7 @@ const App = () => {
     } catch (err) { showStatus("Gagal mengemaskini syif", "error"); }
   };
 
-  // --- Memos ---
+  // --- Derived Memos ---
   const activeShiftInfo = useMemo(() => {
     if (activeShiftType === 'all') return null;
     return shiftDefinitions.find(d => d.id === activeShiftType);
@@ -396,10 +371,7 @@ const App = () => {
     setTimeout(() => setStatusMsg(null), 3000);
   };
 
-  const openPrintOptions = (format) => {
-    setPrintFormat(format);
-    setShowPrintOptions(true);
-  };
+  const openPrintOptions = (format) => { setPrintFormat(format); setShowPrintOptions(true); };
 
   const handlePrintAction = () => {
     setShowPrintOptions(false);
@@ -423,21 +395,21 @@ const App = () => {
 
   const editStaff = (p) => { setNewStaff({ id: p.id, name: p.name, phone: p.phone || '', unit: p.unit || '' }); setShowStaffModal(true); };
 
-  if (!user) return <div className="flex h-screen items-center justify-center bg-slate-50"><div className="flex flex-col items-center gap-4"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div><p className="text-slate-500 font-bold animate-pulse">Menyambung ke pelayan...</p></div></div>;
+  if (!user) return <div className="flex h-screen items-center justify-center bg-slate-50"><div className="flex flex-col items-center gap-4"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div><p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-[10px]">Menyambung...</p></div></div>;
 
-  // --- PRINT VIEW ---
+  // --- PRINT MODE VIEW ---
   if (isPrintMode) {
     const filteredShiftDefs = shiftDefinitions.filter(def => selectedPrintShifts.includes(def.id));
     return (
       <div className="min-h-screen bg-white p-8 font-sans text-black">
         <div className="flex justify-between items-start mb-8 no-print">
           <button onClick={() => setIsPrintMode(false)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl font-bold hover:bg-slate-200 transition-all"><ArrowLeft size={18} /><span>Kembali</span></button>
-          <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg"><Printer size={18} /><span>Cetak</span></button>
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg"><Printer size={18} /><span>Cetak Sekarang</span></button>
         </div>
-        <div className="text-center mb-6 border-b-2 border-black pb-4 text-black">
-          <h1 className="text-2xl font-black uppercase tracking-tight">{String(appSettings.title)}</h1>
+        <div className="text-center mb-6 border-b-2 border-black pb-4 text-black uppercase">
+          <h1 className="text-2xl font-black tracking-tight">{String(appSettings.title)}</h1>
           <p className="text-lg font-bold">{String(appSettings.subtitle)}</p>
-          <p className="text-md font-bold mt-1 uppercase text-black">
+          <p className="text-md font-bold mt-1">
             {printFormat === 'ot' ? 'Penyata Tuntutan Kerja Lebih Masa (OT)' : 'Jadual Bertugas'} • {currentMonth.toLocaleString('ms-MY', { month: 'long', year: 'numeric' })}
           </p>
         </div>
@@ -462,22 +434,22 @@ const App = () => {
                 <tbody>
                   <tr><td className="w-40 py-1 font-bold text-black">NAMA KAKITANGAN:</td><td className="py-1 uppercase font-black text-black text-left">{String(filteredStats.name)}</td></tr>
                   <tr><td className="py-1 font-bold text-black">UNIT / SEKSYEN:</td><td className="py-1 uppercase text-left text-black">{String(filteredStats.unit || 'TIADA UNIT')}</td></tr>
-                  <tr><td className="py-1 font-bold text-black">JUMLAH HARI:</td><td className="py-1 text-left text-black">{individualDutyList.length} HARI</td></tr>
+                  <tr><td className="py-1 font-bold text-black">JUMLAH HARI:</td><td className="py-1 text-left text-black uppercase">{individualDutyList.length} Hari</td></tr>
                 </tbody>
               </table>
             </div>
             <table className="w-full border-collapse border border-black text-sm text-black">
-              <thead><tr className="bg-slate-100 text-black"><th className="border border-black p-2 text-center w-10">NO</th><th className="border border-black p-2 text-center">TARIKH</th><th className="border border-black p-2 text-center">HARI</th><th className="border border-black p-2 text-center">SYIF</th><th className="border border-black p-2 text-center">WAKTU BERTUGAS</th><th className="border border-black p-2 text-center w-24">CATATAN</th></tr></thead>
+              <thead><tr className="bg-slate-100 text-black uppercase font-black"><th className="border border-black p-2 text-center w-10">NO</th><th className="border border-black p-2 text-center">TARIKH</th><th className="border border-black p-2 text-center">HARI</th><th className="border border-black p-2 text-center">SYIF</th><th className="border border-black p-2 text-center">WAKTU</th><th className="border border-black p-2 text-center w-24">CATATAN</th></tr></thead>
               <tbody>
                 {individualDutyList.map((item, idx) => {
                    const d = new Date(item.date);
                    return (
                     <tr key={idx} className={d.getDay() === 0 || holidays[item.date] ? 'bg-yellow-50' : ''}>
-                      <td className="border border-black p-2 text-center text-xs text-black">{idx + 1}</td>
-                      <td className="border border-black p-2 text-center text-xs text-black">{new Date(item.date).toLocaleDateString('ms-MY')}</td>
-                      <td className="border border-black p-2 text-center uppercase font-bold text-xs text-black">{new Date(item.date).toLocaleString('ms-MY', { weekday: 'long' })}</td>
-                      <td className="border border-black p-2 text-center uppercase font-black text-xs text-black">{String(item.shiftName)}</td>
-                      <td className="border border-black p-2 text-center whitespace-pre-line text-[10px] text-black">{String(item.shiftTime)}</td>
+                      <td className="border border-black p-2 text-center text-xs">{idx + 1}</td>
+                      <td className="border border-black p-2 text-center text-xs">{d.toLocaleDateString('ms-MY')}</td>
+                      <td className="border border-black p-2 text-center uppercase font-bold text-xs">{d.toLocaleString('ms-MY', { weekday: 'long' })}</td>
+                      <td className="border border-black p-2 text-center uppercase font-black text-xs">{String(item.shiftName)}</td>
+                      <td className="border border-black p-2 text-center whitespace-pre-line text-[10px]">{String(item.shiftTime)}</td>
                       <td className="border border-black p-2 text-center"></td>
                     </tr>
                   );
@@ -506,7 +478,7 @@ const App = () => {
                         return (
                           <div key={type.id} className="text-[8px] leading-tight text-left">
                             <p className="font-black border-b border-slate-200 mb-0.5 uppercase text-black">{String(type.label)}</p>
-                            {list.map(st => (<p key={st.staffId} className="font-medium text-black">• {String(st.staffName)}</p>))}
+                            {list.map(st => (<p key={st.staffId} className="font-medium text-black truncate">• {String(st.staffName)}</p>))}
                           </div>
                         );
                       })}
@@ -520,32 +492,34 @@ const App = () => {
         <div className="mt-20 grid grid-cols-2 gap-20 text-center text-black">
           <div className="space-y-12">
             <p className="text-xs font-bold uppercase underline">Disediakan Oleh:</p>
-            <div>
-              <div className="border-b border-black w-64 mx-auto mb-1"></div>
-              <p className="text-[10px] font-black uppercase text-black">(TANDATANGAN & COP RASMI)</p>
-            </div>
+            <div><div className="border-b border-black w-64 mx-auto mb-1"></div><p className="text-[10px] font-black uppercase">(TANDATANGAN & COP RASMI)</p></div>
           </div>
           <div className="space-y-12">
             <p className="text-xs font-bold uppercase underline">Diluluskan Oleh:</p>
-            <div>
-              <div className="border-b border-black w-64 mx-auto mb-1 text-black"></div>
-              <p className="text-[10px] font-black uppercase text-black">(TANDATANGAN & COP RASMI)</p>
-            </div>
+            <div><div className="border-b border-black w-64 mx-auto mb-1 text-black"></div><p className="text-[10px] font-black uppercase">(TANDATANGAN & COP RASMI)</p></div>
           </div>
         </div>
       </div>
     );
   }
 
+  // --- MAIN UI ---
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20 no-print">
       
+      {statusMsg && (
+        <div className={`fixed top-4 right-4 z-[200] p-4 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-600' : 'bg-slate-800'} text-white`}>
+          {statusMsg.type === 'success' ? <CheckCircle2 size={20} /> : <Info size={20} />}
+          <span className="font-medium uppercase text-[11px] tracking-widest">{String(statusMsg.text)}</span>
+        </div>
+      )}
+
       {headerVisible && (
         <header className="bg-white border-b sticky top-0 z-20 px-4 py-4 shadow-sm">
           <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-3 shrink-0">
               <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg"><ClipboardList size={22} /></div>
-              <div><h1 className="text-xl font-black text-slate-800 leading-none text-left">{String(appSettings.title)}</h1><p className="text-[10px] text-slate-400 font-bold uppercase mt-1 text-left">{String(appSettings.subtitle)}</p></div>
+              <div><h1 className="text-xl font-black text-slate-800 leading-none text-left uppercase">{String(appSettings.title)}</h1><p className="text-[10px] text-slate-400 font-bold uppercase mt-1 text-left tracking-widest">{String(appSettings.subtitle)}</p></div>
             </div>
 
             <div className="flex flex-wrap items-center justify-end flex-1 gap-3">
@@ -563,7 +537,7 @@ const App = () => {
               </div>
 
               <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
-                <button onClick={() => openPrintOptions('calendar')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black text-slate-600 hover:bg-white hover:text-blue-600 transition-all border border-transparent hover:border-blue-100"><CalendarIcon size={16} /><span>Kalendar</span></button>
+                <button onClick={() => openPrintOptions('calendar')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black text-slate-600 hover:bg-white hover:text-blue-600 transition-all border border-transparent"><CalendarIcon size={16} /><span>Kalendar</span></button>
                 <button onClick={() => openPrintOptions('ot')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg active:scale-95 transition-all"><FileText size={16} /><span>OT</span></button>
               </div>
             </div>
@@ -580,9 +554,9 @@ const App = () => {
                 <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Cari nama staf dalam jadual..." className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none shadow-sm" />
                 {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"><X size={18} /></button>}
               </div>
-              <div className="flex flex-wrap items-center gap-2 bg-white/50 p-4 rounded-[2rem] border border-slate-100 shadow-sm text-slate-800">
-                <button onClick={() => setActiveShiftType('all')} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${activeShiftType === 'all' ? 'bg-slate-800 text-white border-slate-800 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>Semua Syif</button>
-                {shiftDefinitions.map(type => (<button key={type.id} onClick={() => setActiveShiftType(type.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${activeShiftType === type.id ? `${getShiftColor(type.color, 'bg')} text-white border-transparent shadow-md` : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>{String(type.label)}</button>))}
+              <div className="flex flex-wrap items-center gap-2 bg-white/50 p-4 rounded-[2rem] border border-slate-100 shadow-sm">
+                <button onClick={() => setActiveShiftType('all')} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${activeShiftType === 'all' ? 'bg-slate-800 text-white border-slate-800 shadow-md' : 'bg-white text-slate-600 border-slate-200'}`}>Semua Syif</button>
+                {shiftDefinitions.map(type => (<button key={type.id} onClick={() => setActiveShiftType(type.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${activeShiftType === type.id ? `${getShiftColor(type.color, 'bg')} text-white border-transparent shadow-md` : 'bg-white text-slate-600 border-slate-200'}`}>{String(type.label)}</button>))}
               </div>
             </div>
 
@@ -593,26 +567,13 @@ const App = () => {
               </div>
             )}
 
-            {filteredStats && (
-              <div className="bg-blue-600 text-white p-6 rounded-[2.5rem] shadow-xl flex items-center justify-between">
-                <div className="flex items-center gap-4 text-left"><div className="bg-white/20 p-4 rounded-2xl backdrop-blur-md"><UserCheck size={32} /></div><div><h3 className="font-black text-2xl uppercase mb-1 text-left">{String(filteredStats.name)}</h3><p className="text-blue-100 text-xs font-bold uppercase tracking-widest text-left">{String(filteredStats.unit || 'Tiada Unit')}</p></div></div>
-                <div className="flex items-center gap-4 text-right pr-6">
-                  <div><p className="text-5xl font-black">{filteredStats.count}</p><p className="text-[10px] font-bold uppercase opacity-80">Hari Bertugas</p></div>
-                  <div className="flex gap-2">
-                    <button onClick={() => openPrintOptions('calendar')} className="p-4 bg-white text-blue-600 rounded-2xl shadow-xl hover:scale-105 transition-all"><Printer size={24} /></button>
-                    <button onClick={() => openPrintOptions('ot')} className="p-4 bg-emerald-500 text-white rounded-2xl shadow-xl hover:scale-105 transition-all"><FileText size={24} /></button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden">
               <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50 text-slate-400">
                 {['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu', 'Ahad'].map(day => (<div key={day} className="py-4 text-center text-[10px] font-black uppercase tracking-widest">{day}</div>))}
               </div>
-              <div className="grid grid-cols-7 gap-px bg-slate-100 text-slate-800">
+              <div className="grid grid-cols-7 gap-px bg-slate-100">
                 {calendarDays.map((dateStr, idx) => {
-                  if (!dateStr) return <div key={`empty-${idx}`} className="bg-slate-50/20 h-32 md:h-48 text-slate-800"></div>;
+                  if (!dateStr) return <div key={`empty-${idx}`} className="bg-slate-50/20 h-32 md:h-48"></div>;
                   const d = new Date(dateStr), h = holidays[dateStr], s = shifts[dateStr] || {}, today = dateStr === new Date().toISOString().split('T')[0];
                   return (
                     <div key={dateStr} onClick={() => setSelectedDate(dateStr)} className={`min-h-[140px] md:min-h-[220px] p-2 flex flex-col group cursor-pointer hover:bg-blue-50/30 transition-colors ${h ? 'bg-yellow-50' : 'bg-white'} ${today ? 'ring-2 ring-inset ring-blue-500 z-10' : ''}`}>
@@ -625,7 +586,7 @@ const App = () => {
                           if (searchTerm.trim()) list = list.filter(st => String(st.staffName || '').toUpperCase().includes(searchTerm.toUpperCase()));
                           if (list.length === 0) return null;
                           return (
-                            <div key={type.id} className="space-y-1 animate-in zoom-in-95 text-slate-800 text-left">
+                            <div key={type.id} className="space-y-1 animate-in zoom-in-95">
                               <div className={`flex items-center gap-1 text-[7px] font-black uppercase tracking-tighter opacity-70 ${getShiftColor(type.color, 'light').split(' ')[1]}`}><span>{String(type.label)}</span></div>
                               {list.map(st => (<div key={st.staffId} className={`px-2 py-1.5 rounded-xl text-[10px] font-black truncate border shadow-sm flex items-center gap-1.5 ${getShiftColor(type.color, 'light')} border-current/10`}><div className={`w-1.5 h-1.5 rounded-full ${getShiftColor(type.color, 'bg')} shrink-0`}></div><span className="truncate uppercase">{String(st.staffName)}</span></div>))}
                             </div>
@@ -643,7 +604,7 @@ const App = () => {
              <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm gap-4 text-slate-800">
               <div>
                 <h2 className="text-2xl font-black uppercase text-left">Pergerakan Staf</h2>
-                <p className="text-slate-500 font-medium text-left">Rekod pergerakan harian kakitangan farmasi</p>
+                <p className="text-slate-500 font-medium text-left uppercase text-[10px] tracking-widest mt-1">Hospital Sultanah Nora Ismail</p>
               </div>
               <button onClick={() => setShowMovementModal(true)} className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all"><Plus size={20} /><span>Kemaskini Pergerakan</span></button>
             </div>
@@ -664,12 +625,16 @@ const App = () => {
               </div>
               <div className="grid grid-cols-7 gap-px bg-slate-100 text-slate-800">
                 {calendarDays.map((dateStr, idx) => {
-                  if (!dateStr) return <div key={`empty-${idx}`} className="bg-slate-50/20 h-40 text-slate-800"></div>;
+                  if (!dateStr) return <div key={`empty-${idx}`} className="bg-slate-50/20 h-40"></div>;
+                  const startOfThisDay = new Date(dateStr);
+                  startOfThisDay.setHours(0,0,0,0);
+                  
                   const dayMovements = movements.filter(m => {
                     const start = new Date(m.dateStart);
+                    start.setHours(0,0,0,0);
                     const end = new Date(m.dateEnd);
-                    const curr = new Date(dateStr);
-                    return curr >= start && curr <= end;
+                    end.setHours(23,59,59,999);
+                    return startOfThisDay >= start && startOfThisDay <= end;
                   });
                   return (
                     <div key={dateStr} className="min-h-[160px] p-2 bg-white flex flex-col group transition-colors hover:bg-slate-50/50 text-slate-800">
@@ -680,12 +645,12 @@ const App = () => {
                           return (
                             <div 
                               key={m.id} 
-                              title={`${String(m.type)}: ${String(m.staffName)} ${m.type === 'Off' && m.timeInfo ? `(${m.timeInfo})` : ''} (${m.dateStart} hingga ${m.dateEnd})`}
+                              title={`${String(m.type)}: ${String(m.staffName)} ${m.type === 'Off' && m.timeInfo ? `(${m.timeInfo})` : ''}`}
                               className={`p-2 rounded-xl text-[9px] font-black text-white ${typeCfg.color} flex items-center justify-between group/item shadow-sm animate-in zoom-in-95 cursor-help transition-all`}
                             >
-                              <div className="flex items-center gap-1.5 truncate">
+                              <div className="flex items-center gap-1.5 truncate uppercase">
                                 {typeCfg.icon}
-                                <span className="truncate uppercase">{String(m.staffName)}{m.type === 'Off' && m.timeInfo ? ` (${m.timeInfo})` : ''}</span>
+                                <span className="truncate">{String(m.staffName)}{m.type === 'Off' && m.timeInfo ? ` (${m.timeInfo})` : ''}</span>
                               </div>
                               <button onClick={(e) => { e.stopPropagation(); deleteMovement(m.id); }} className="opacity-0 group-hover/item:opacity-100 p-1 hover:bg-black/10 rounded transition-all text-white"><X size={12} /></button>
                             </div>
@@ -700,7 +665,7 @@ const App = () => {
           </div>
         ) : activeTab === 'staff' ? (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in text-slate-800">
-            <div className="p-8 border-b flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/50 text-slate-800">
+            <div className="p-8 border-b flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/50">
               <div className="flex-1"><h2 className="text-2xl font-black uppercase text-left">Direktori Staf</h2></div>
               <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto text-slate-800">
                 <div className="relative w-full md:w-80 text-slate-800"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="text" value={staffSearchTerm} onChange={(e) => setStaffSearchTerm(e.target.value)} placeholder="Cari nama atau unit..." className="w-full pl-12 pr-10 py-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-sm outline-none shadow-inner text-slate-800" /></div>
@@ -724,10 +689,10 @@ const App = () => {
           <div className="space-y-6 animate-in fade-in text-slate-800">
              <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-slate-800">
               <h2 className="text-2xl font-black mb-8 uppercase text-left">Maklumat Jadual</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end text-slate-800">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end text-slate-800 text-left">
                 <div className="space-y-2 text-slate-800"><label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Tajuk Utama</label><input type="text" value={appSettings.title} onChange={(e) => setAppSettings({...appSettings, title: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none text-slate-800 shadow-inner" /></div>
                 <div className="space-y-2 text-slate-800"><label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Sub-Tajuk</label><input type="text" value={appSettings.subtitle} onChange={(e) => setAppSettings({...appSettings, subtitle: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none text-slate-800 shadow-inner" /></div>
-                <div className="md:col-span-2 flex justify-end mt-4"><button onClick={() => updateAppSettings(appSettings.title, appSettings.subtitle)} className="px-8 py-4 bg-slate-900 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all flex items-center gap-2"><Save size={20} /><span>Simpan Tetapan</span></button></div>
+                <div className="md:col-span-2 flex justify-end mt-4"><button onClick={() => updateAppSettings(appSettings.title, appSettings.subtitle)} className="px-8 py-4 bg-slate-900 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all"><Save size={20} /><span>Simpan Tetapan</span></button></div>
               </div>
             </div>
 
@@ -739,7 +704,7 @@ const App = () => {
                 <button type="submit" className="bg-blue-600 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all"><Plus size={20} /><span>Tambah</span></button>
               </form>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-slate-800">
-                {Object.values(holidays).sort((a,b) => String(a.date).localeCompare(String(b.date))).map(h => (<div key={h.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-100 rounded-2xl shadow-sm text-left"><div><p className="text-xs font-black text-yellow-700">{new Date(h.date).toLocaleDateString('ms-MY')}</p><p className="text-[10px] font-bold text-yellow-600 uppercase text-left">{String(h.name)}</p></div><button onClick={() => deleteHoliday(h.id)} className="text-yellow-200 hover:text-red-500 transition-colors"><Trash2 size={18} /></button></div>))}
+                {Object.values(holidays).sort((a,b) => String(a.date).localeCompare(String(b.date))).map(h => (<div key={h.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-100 rounded-2xl shadow-sm text-left text-slate-800"><div><p className="text-xs font-black text-yellow-700">{new Date(h.date).toLocaleDateString('ms-MY')}</p><p className="text-[10px] font-bold text-yellow-600 uppercase text-left">{String(h.name)}</p></div><button onClick={() => deleteHoliday(h.id)} className="text-yellow-200 hover:text-red-500 transition-colors"><Trash2 size={18} /></button></div>))}
               </div>
             </div>
 
@@ -761,21 +726,118 @@ const App = () => {
 
       {/* --- MODALS --- */}
 
+      {/* MODAL PERGERAKAN STAF (PEMBAIKAN UTAMA) */}
+      {showMovementModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden text-slate-800">
+            <div className="p-8 border-b bg-slate-50/80 flex justify-between items-center text-slate-800">
+              <div><h3 className="text-xl font-black uppercase text-slate-800">Rekod Pergerakan</h3><p className="text-xs font-bold text-slate-400 tracking-wider">Daftar cuti atau aktiviti luar staf</p></div>
+              <button onClick={() => { setShowMovementModal(false); setMovementModalSearch(''); }} className="p-2 hover:bg-white rounded-full border border-slate-100 bg-white"><X size={20} /></button>
+            </div>
+            <form onSubmit={saveMovement} className="p-8 space-y-6 text-slate-800">
+              <div className="space-y-2 text-slate-800">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Cari & Pilih Kakitangan</label>
+                {!newMovement.staffId ? (
+                  <div className="relative text-slate-800">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input type="text" value={movementModalSearch} onChange={(e) => setMovementModalSearch(e.target.value)} placeholder="Taip nama staf (eg: AFIF)..." className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-700 shadow-inner outline-none focus:ring-2 focus:ring-blue-500" />
+                    {movementModalSearch && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[140] overflow-hidden max-h-48 overflow-y-auto">
+                        {filteredMovementStaff.map(s => (
+                          <div key={s.id} onClick={() => { setNewMovement({...newMovement, staffId: s.id, staffName: String(s.name)}); setMovementModalSearch(''); }} className="p-4 hover:bg-blue-50 cursor-pointer border-b border-slate-50 transition-colors flex items-center gap-3 text-left">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold"><User size={14} /></div>
+                            <span className="font-bold text-sm text-slate-800 uppercase leading-none">{String(s.name)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between text-slate-800 animate-in zoom-in-95">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg font-black"><UserCheck size={20} /></div>
+                      <span className="font-black text-blue-700 uppercase">{String(newMovement.staffName)}</span>
+                    </div>
+                    <button type="button" onClick={() => setNewMovement({...newMovement, staffId: '', staffName: ''})} className="p-2 text-blue-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1 text-slate-800 text-left">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Jenis Pergerakan</label>
+                <div className="grid grid-cols-2 gap-2 text-slate-800">
+                  {MOVEMENT_TYPES.map(type => (
+                    <button key={type.id} type="button" onClick={() => setNewMovement({...newMovement, type: type.id})} className={`p-3 rounded-xl text-[10px] font-black border-2 transition-all flex items-center gap-2 ${newMovement.type === type.id ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-100 bg-white text-slate-400'}`}>
+                      <div className={`w-2 h-2 rounded-full ${type.color}`}></div>{type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {newMovement.type === 'Off' && (
+                <div className="space-y-1 animate-in slide-in-from-top-2 text-slate-800 text-left">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Masa Off (eg: 8:00am - 12:00pm)</label>
+                  <div className="relative">
+                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input type="text" value={newMovement.timeInfo} onChange={(e) => setNewMovement({...newMovement, timeInfo: e.target.value})} placeholder="Masukkan waktu..." className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-700 shadow-inner outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 text-slate-800 text-left">
+                <div className="space-y-1 text-slate-800"><label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Mula</label><input type="date" value={newMovement.dateStart} onChange={(e) => setNewMovement({...newMovement, dateStart: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-700 shadow-inner outline-none" required /></div>
+                <div className="space-y-1 text-slate-800"><label className="text-[10px] font-black uppercase text-slate-400 ml-1 text-left block">Tamat</label><input type="date" value={newMovement.dateEnd} onChange={(e) => setNewMovement({...newMovement, dateEnd: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-700 shadow-inner outline-none" required /></div>
+              </div>
+              <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95 mt-4 transition-all disabled:opacity-50" disabled={!newMovement.staffId}>Simpan Pergerakan</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPrintOptions && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 text-slate-800">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50/80">
+              <div><h3 className="text-xl font-black uppercase text-slate-800 text-left">Tetapan Laporan</h3><p className="text-xs font-bold text-slate-400 text-left">Pilih syif untuk dipaparkan</p></div>
+              <button onClick={() => setShowPrintOptions(false)} className="p-2 hover:bg-white rounded-full border border-slate-100 bg-white shadow-sm"><X size={20} /></button>
+            </div>
+            <div className="p-8 max-h-[50vh] overflow-y-auto custom-scrollbar text-slate-800">
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-left">Senarai Syif</span>
+                <button onClick={() => setSelectedPrintShifts(selectedPrintShifts.length === shiftDefinitions.length ? [] : shiftDefinitions.map(s => s.id))} className="text-[10px] font-bold text-blue-600 hover:underline tracking-widest">Pilih Semua</button>
+              </div>
+              <div className="grid grid-cols-1 gap-3 text-slate-800">
+                {shiftDefinitions.map(def => {
+                  const isChecked = selectedPrintShifts.includes(def.id);
+                  return (
+                    <div key={def.id} onClick={() => togglePrintShift(def.id)} className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer border-2 transition-all ${isChecked ? 'border-blue-600 bg-blue-50/50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${isChecked ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 bg-white'}`}>{isChecked && <Check size={14} strokeWidth={4} />}</div>
+                      <div className="flex-1 text-slate-800 text-left"><p className={`font-black text-sm uppercase leading-none mb-1 ${isChecked ? 'text-blue-700' : 'text-slate-700'}`}>{String(def.label)}</p><p className="text-[9px] font-bold text-slate-400 text-left">{String(def.time?.split('\n')[0])}</p></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="p-8 bg-slate-50 border-t"><button onClick={handlePrintAction} disabled={selectedPrintShifts.length === 0} className="w-full py-4 bg-blue-600 disabled:bg-slate-300 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"><Printer size={20} /><span>Proses Cetakan</span></button></div>
+          </div>
+        </div>
+      )}
+
       {selectedDate && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md animate-in fade-in no-print text-slate-800">
           <div className="bg-white w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95">
             <div className="p-8 border-b flex flex-col md:flex-row md:items-center justify-between bg-slate-50/80 gap-4 text-slate-800">
-              <div className="text-left"><h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase text-left">Atur Jadual Staf</h3><p className={`font-bold text-sm ${holidays[selectedDate] ? 'text-red-500' : 'text-slate-500'} text-left block`}>📅 {new Date(selectedDate).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} {holidays[selectedDate] && `• CUTI: ${String(holidays[selectedDate].name)}`}</p></div>
+              <div className="text-left uppercase font-black tracking-tight"><h3 className="text-2xl text-slate-800 text-left">Atur Jadual Staf</h3><p className={`font-bold text-[10px] ${holidays[selectedDate] ? 'text-red-500' : 'text-slate-500'} text-left block mt-1`}>📅 {new Date(selectedDate).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} {holidays[selectedDate] && `• CUTI: ${String(holidays[selectedDate].name)}`}</p></div>
               <button onClick={() => setSelectedDate(null)} className="p-4 bg-white hover:bg-slate-100 rounded-full shadow-sm border border-slate-100 bg-white shadow-sm"><X size={24} /></button>
             </div>
-            <div className="p-6 md:p-8 bg-white max-h-[70vh] overflow-y-auto custom-scrollbar text-slate-800">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start text-slate-800">
+            <div className="p-6 md:p-8 bg-white max-h-[70vh] overflow-y-auto custom-scrollbar text-slate-800 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start text-slate-800 text-left">
                 {shiftDefinitions.map(type => {
                   const assigned = shifts[selectedDate]?.[type.id] || [], query = modalSearchTerms[type.id] || "";
                   const results = query.trim().length >= 1 ? staff.filter(s => String(s.name || '').toUpperCase().includes(query.toUpperCase()) && !assigned.some(a => a.staffId === s.id)).sort((a,b) => String(a.name || '').localeCompare(String(b.name || ''))).slice(0, 10) : [];
                   return (
                     <div key={type.id} className="space-y-4 p-5 rounded-[2.5rem] border border-slate-100 bg-slate-50/50 shadow-sm text-slate-800 text-left">
-                      <div className="flex items-center justify-between border-b pb-3 text-slate-800 text-left"><div className="flex flex-col text-left"><div className="flex items-center gap-2 text-left text-slate-800"><div className={`w-3.5 h-3.5 rounded-full ${getShiftColor(type.color, 'bg')}`}></div><label className="text-[12px] font-black uppercase text-left block font-black">{String(type.label)}</label></div><span className="text-[9px] text-slate-400 font-bold ml-5 uppercase text-left block">Waktu: {String(type.time?.split('\n')[0])}</span></div><span className="bg-white px-3 py-1 rounded-full text-[10px] font-black border border-slate-200 shadow-sm">{assigned.length}</span></div>
+                      <div className="flex items-center justify-between border-b pb-3 text-slate-800 text-left"><div className="flex flex-col text-left"><div className="flex items-center gap-2 text-left text-slate-800 uppercase font-black"><div className={`w-3.5 h-3.5 rounded-full ${getShiftColor(type.color, 'bg')}`}></div><label className="text-[11px] text-left block leading-none">{String(type.label)}</label></div><span className="text-[9px] text-slate-400 font-bold ml-5 uppercase text-left block mt-1">Waktu: {String(type.time?.split('\n')[0])}</span></div><span className="bg-white px-3 py-1 rounded-full text-[10px] font-black border border-slate-200 shadow-sm text-slate-700">{assigned.length}</span></div>
                       <div className="relative text-slate-800"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} /><input type="text" value={query} onChange={(e) => setModalSearchTerms({ ...modalSearchTerms, [type.id]: e.target.value })} placeholder="Cari & tambah staf..." className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner text-slate-800" /></div>
                       <div className="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar text-left text-slate-800">
                         {assigned.map(s => (
@@ -786,7 +848,7 @@ const App = () => {
                         ))}
                         {results.map(s => (
                           <div key={s.id} onClick={() => { toggleStaffOnShift(selectedDate, type.id, s.id); setModalSearchTerms({ ...modalSearchTerms, [type.id]: "" }); }} className="flex items-center justify-between p-3 bg-white border border-transparent hover:border-slate-300 rounded-2xl cursor-pointer text-slate-600 shadow-sm transition-all hover:bg-slate-50 text-left text-slate-800">
-                            <div className="flex flex-col text-left"><span className="text-[11px] truncate uppercase text-left font-black">{String(s.name)}</span><span className="text-[8px] font-black uppercase tracking-tighter opacity-50 text-left">{String(s.unit || 'Tiada Unit')}</span></div><Plus size={14} className="text-slate-300" />
+                            <div className="flex flex-col text-left"><span className="text-[11px] truncate uppercase text-left font-bold">{String(s.name)}</span><span className="text-[8px] font-black uppercase tracking-tighter opacity-50 text-left">{String(s.unit || 'Tiada Unit')}</span></div><Plus size={14} className="text-slate-300" />
                           </div>
                         ))}
                       </div>
@@ -822,7 +884,7 @@ const App = () => {
               <input type="text" value={editingShiftDef.label} onChange={(e) => setEditingShiftDef({...editingShiftDef, label: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl font-bold outline-none text-slate-700 shadow-inner" placeholder="Nama Syif" required />
               <textarea rows={3} value={editingShiftDef.time} onChange={(e) => setEditingShiftDef({...editingShiftDef, time: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl font-bold outline-none resize-none text-slate-700 shadow-inner" placeholder="Waktu Bertugas" />
               <div className="flex flex-wrap gap-2.5 pt-1 text-slate-800 text-left">{COLOR_OPTIONS.map(c => (<button key={c.id} type="button" onClick={() => setEditingShiftDef({...editingShiftDef, color: c.id})} className={`w-10 h-10 rounded-xl border-4 ${c.bg} ${editingShiftDef.color === c.id ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent'}`} />))}</div>
-              <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all text-slate-800">Simpan Tetapan</button>
+              <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all text-slate-800 uppercase tracking-widest text-[10px]">Simpan Tetapan</button>
             </form>
           </div>
         </div>
