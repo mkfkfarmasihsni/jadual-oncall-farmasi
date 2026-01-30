@@ -53,18 +53,15 @@ import {
 // --- Pengendalian Konfigurasi Firebase yang Selamat ---
 const getFirebaseConfig = () => {
   try {
-    // Utamakan pembolehubah process.env (Vercel/CRA)
     if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_FIREBASE_CONFIG) {
       return JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
     }
-    // Fallback ke pembolehubah global jika wujud
     if (typeof __firebase_config !== 'undefined' && __firebase_config) {
       return JSON.parse(__firebase_config);
     }
   } catch (e) {
     console.error("Firebase config parsing error:", e);
   }
-  // Hardcoded fallback (Gantikan maklumat ini jika perlu)
   return {
     apiKey: "AIzaSyDw1t_UrMRvEHCyKFQIzMmlP7w6feSIos0",
     authDomain: "jadual-oncall.firebaseapp.com",
@@ -85,7 +82,7 @@ const getAppId = () => {
 const firebaseConfig = getFirebaseConfig();
 const appId = getAppId();
 
-// Inisialisasi Firebase
+// PEMBETULAN: Inisialisasi menggunakan firebaseConfig yang baru didefinisikan
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -95,7 +92,7 @@ const COLOR_OPTIONS = [
   { id: 'indigo', bg: 'bg-indigo-600', border: 'border-indigo-600', light: 'bg-indigo-50 text-indigo-700' },
   { id: 'orange', bg: 'bg-orange-500', border: 'border-orange-500', light: 'bg-orange-50 text-orange-700' },
   { id: 'emerald', bg: 'bg-emerald-500', border: 'border-emerald-500', light: 'bg-emerald-700 text-white' },
-  { id: 'blue', bg: 'bg-blue-500', border: 'border-blue-500', light: 'bg-blue-50 text-blue-700' },
+  { id: 'blue', bg: 'bg-blue-500', border: 'border-blue-500', light: 'bg-blue-700 text-blue-700' },
   { id: 'pink', bg: 'bg-pink-500', border: 'border-pink-500', light: 'bg-pink-50 text-pink-700' },
   { id: 'red', bg: 'bg-red-500', border: 'border-red-500', light: 'bg-red-50 text-red-700' },
   { id: 'purple', bg: 'bg-purple-600', border: 'border-purple-600', light: 'bg-purple-50 text-purple-700' },
@@ -114,7 +111,7 @@ const MOVEMENT_TYPES = [
   { id: 'Kursus', label: 'Kursus', color: 'bg-indigo-500', light: 'bg-indigo-50 text-indigo-700', icon: <BookOpen size={14} /> },
   { id: 'Off', label: 'Off', color: 'bg-slate-500', light: 'bg-slate-100 text-slate-700', icon: <Coffee size={14} /> },
   { id: 'Mesyuarat', label: 'Mesyuarat', color: 'bg-blue-600', light: 'bg-blue-50 text-blue-700', icon: <Users size={14} /> },
-  { id: 'Temujanji', label: 'Temujanji', color: 'bg-teal-500', light: 'bg-teal-50 text-teal-700', icon: <CheckCircle2 size={14} /> },
+  { id: 'Temujanji', label: 'Temujanji', color: 'bg-teal-500', light: 'bg-teal-700 text-white', icon: <CheckCircle2 size={14} /> },
   { id: 'Cuti Bersalin', label: 'Cuti Bersalin', color: 'bg-pink-500', light: 'bg-pink-50 text-pink-700', icon: <Plus size={14} /> },
   { id: 'Cuti Belajar', label: 'Cuti Belajar', color: 'bg-purple-600', light: 'bg-purple-50 text-purple-700', icon: <BookOpen size={14} /> },
 ];
@@ -678,14 +675,14 @@ const App = () => {
         )}
       </main>
 
-      {/* --- MODALS - Optimized for Mobile --- */}
+      {/* --- MODALS --- */}
 
       {/* Modal Detail Pergerakan Harian */}
       {viewingDayMovements && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden text-slate-800 flex flex-col">
-            <div className="p-8 border-b bg-slate-50/80 flex justify-between items-center text-slate-800 shrink-0">
-              <div className="text-left leading-tight"><h3 className="text-xl font-black uppercase text-slate-800 leading-none">Detail Harian</h3><p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest">📅 {new Date(viewingDayMovements).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+            <div className="p-8 border-b bg-slate-50/80 flex justify-between items-center text-slate-800 shrink-0 text-left leading-tight">
+              <div className="text-left"><h3 className="text-xl font-black uppercase text-slate-800 leading-none">Detail Harian</h3><p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest">📅 {new Date(viewingDayMovements).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
               <button onClick={() => setViewingDayMovements(null)} className="p-2 hover:bg-white rounded-full border border-slate-100 bg-white shadow-sm shrink-0"><X size={24} /></button>
             </div>
             <div className="p-6 max-h-[60vh] overflow-y-auto no-scrollbar text-slate-800 flex-1">
@@ -703,16 +700,9 @@ const App = () => {
                         <span className="font-black uppercase text-xs truncate">{String(m.staffName)}</span>
                         <div className="flex items-center gap-1.5 mt-1 opacity-75">{typeCfg.icon}<span className="font-bold text-[10px] uppercase tracking-wider">{m.type} {m.type === 'Off' && m.timeInfo ? `(${m.timeInfo})` : ''}</span></div>
                       </div>
-                      <div className="text-[9px] font-bold uppercase opacity-50 text-right shrink-0 ml-4 uppercase">Aktif</div>
                     </div>
                   );
                 })}
-                {movements.filter(m => {
-                  const s = new Date(m.dateStart); s.setHours(0,0,0,0);
-                  const e = new Date(m.dateEnd); e.setHours(23,59,59,999);
-                  const curr = new Date(viewingDayMovements);
-                  return curr >= s && curr <= e;
-                }).length === 0 && <div className="py-12 text-center text-slate-400 italic">Tiada rekod pada hari ini.</div>}
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t shrink-0"><button onClick={() => setViewingDayMovements(null)} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all">Tutup</button></div>
@@ -723,13 +713,13 @@ const App = () => {
       {showMovementModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden text-slate-800 max-h-[95vh] flex flex-col">
-            <div className="p-6 border-b bg-slate-50/80 flex justify-between items-center text-slate-800 shrink-0">
-              <div className="text-left leading-tight"><h3 className="text-lg font-black uppercase text-slate-800 leading-none">Kemaskini</h3><p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider text-left tracking-widest leading-none">Hospital Sultanah Nora Ismail</p></div>
+            <div className="p-6 border-b bg-slate-50/80 flex justify-between items-center text-slate-800 shrink-0 text-left leading-tight">
+              <div className="text-left leading-tight"><h3 className="text-lg font-black uppercase text-slate-800 leading-none">Kemaskini</h3><p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider text-left">Hospital Sultanah Nora Ismail</p></div>
               <button onClick={() => { setShowMovementModal(false); setMovementModalSearch(''); }} className="p-2 hover:bg-white rounded-full border border-slate-100 bg-white shadow-sm"><X size={20} /></button>
             </div>
             <form onSubmit={saveMovement} className="p-6 space-y-5 overflow-y-auto no-scrollbar flex-1 text-slate-800 text-left">
               <div className="space-y-2 text-slate-800 text-left">
-                <label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left">Staf</label>
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left leading-none">Pilih Staf</label>
                 {!newMovement.staffId ? (
                   <div className="relative text-slate-800 text-left">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -737,73 +727,57 @@ const App = () => {
                     {movementModalSearch && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-2xl z-[140] overflow-hidden max-h-48 overflow-y-auto text-left">
                         {filteredMovementStaff.map(s => (
-                          <div key={s.id} onClick={() => { setNewMovement({...newMovement, staffId: s.id, staffName: String(s.name)}); setMovementModalSearch(''); }} className="p-3.5 hover:bg-blue-50 cursor-pointer border-b border-slate-50 transition-colors flex items-center gap-3 text-left uppercase text-slate-800"><div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] uppercase shrink-0">{String(s.name).substring(0, 2)}</div><span className="font-bold text-xs text-slate-700 uppercase leading-none truncate">{String(s.name)}</span></div>
+                          <div key={s.id} onClick={() => { setNewMovement({...newMovement, staffId: s.id, staffName: String(s.name)}); setMovementModalSearch(''); }} className="p-3.5 hover:bg-blue-50 cursor-pointer border-b border-slate-50 transition-colors flex items-center gap-3 text-left uppercase text-slate-800 leading-none"><div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] uppercase shrink-0">{String(s.name).substring(0, 2)}</div><span className="font-bold text-xs text-slate-700 uppercase truncate leading-none">{String(s.name)}</span></div>
                         ))}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between text-slate-800 animate-in zoom-in-95 shadow-sm text-left">
-                    <div className="flex items-center gap-3 overflow-hidden text-left"><div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg font-black text-xs shrink-0"><UserCheck size={16} /></div><span className="font-black text-blue-700 uppercase text-xs truncate leading-none text-left">{String(newMovement.staffName)}</span></div>
+                  <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between text-slate-800 shadow-sm text-left">
+                    <div className="flex items-center gap-3 overflow-hidden text-left leading-none"><div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg font-black text-xs shrink-0"><UserCheck size={16} /></div><span className="font-black text-blue-700 uppercase text-xs truncate leading-none">{String(newMovement.staffName)}</span></div>
                     <button type="button" onClick={() => setNewMovement({...newMovement, staffId: '', staffName: ''})} className="p-1.5 text-blue-400 hover:text-red-500 transition-colors"><X size={16} /></button>
                   </div>
                 )}
               </div>
-              <div className="space-y-1.5 text-left text-slate-800">
-                <label className="text-[9px] font-black uppercase text-slate-400 ml-1 block text-left">Jenis</label>
+              <div className="space-y-1.5 text-left text-slate-800 leading-none">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-1 block text-left">Kategori</label>
                 <div className="grid grid-cols-2 gap-2 text-slate-800 text-left">
                   {MOVEMENT_TYPES.map(type => (<button key={type.id} type="button" onClick={() => setNewMovement({...newMovement, type: type.id})} className={`p-2.5 rounded-xl text-[9px] font-black border-2 transition-all flex items-center gap-2 ${newMovement.type === type.id ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-100 bg-white text-slate-400'}`}><div className={`w-2 h-2 rounded-full shrink-0 ${type.color}`}></div>{type.label}</button>))}
                 </div>
               </div>
               {newMovement.type === 'Off' && (
-                <div className="space-y-1.5 animate-in slide-in-from-top-2 text-slate-800 text-left"><label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left">Masa Off (eg: 8am-12pm)</label><div className="relative text-left"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" value={newMovement.timeInfo} onChange={(e) => setNewMovement({...newMovement, timeInfo: e.target.value})} placeholder="Masukkan waktu..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-slate-700 shadow-inner outline-none" /></div></div>
+                <div className="space-y-1.5 animate-in slide-in-from-top-2 text-slate-800 text-left leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left leading-none">Masa Off (eg: 8am-12pm)</label><div className="relative text-left leading-none"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" value={newMovement.timeInfo} onChange={(e) => setNewMovement({...newMovement, timeInfo: e.target.value})} placeholder="Waktu..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-slate-700 shadow-inner outline-none" /></div></div>
               )}
               <div className="grid grid-cols-2 gap-3 text-slate-800 text-left">
-                <div className="space-y-1 text-slate-800 text-left text-left"><label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left leading-none">Mula</label><input type="date" value={newMovement.dateStart} onChange={(e) => setNewMovement({...newMovement, dateStart: e.target.value})} className="w-full px-3 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-slate-700 outline-none shadow-inner" required /></div>
-                <div className="space-y-1 text-slate-800 text-left text-left"><label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left leading-none">Tamat</label><input type="date" value={newMovement.dateEnd} onChange={(e) => setNewMovement({...newMovement, dateEnd: e.target.value})} className="w-full px-3 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-slate-700 outline-none shadow-inner" required /></div>
+                <div className="space-y-1 text-slate-800 text-left"><label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left leading-none">Mula</label><input type="date" value={newMovement.dateStart} onChange={(e) => setNewMovement({...newMovement, dateStart: e.target.value})} className="w-full px-3 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-slate-700 outline-none shadow-inner" required /></div>
+                <div className="space-y-1 text-slate-800 text-left"><label className="text-[9px] font-black uppercase text-slate-400 ml-1 block uppercase text-left leading-none">Tamat</label><input type="date" value={newMovement.dateEnd} onChange={(e) => setNewMovement({...newMovement, dateEnd: e.target.value})} className="w-full px-3 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-slate-700 outline-none shadow-inner" required /></div>
               </div>
-              <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-xl shadow-xl active:scale-95 transition-all disabled:opacity-50 mt-2 text-xs uppercase tracking-widest shadow-blue-900/10" disabled={!newMovement.staffId}>Simpan Pergerakan</button>
+              <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-xl shadow-xl active:scale-95 transition-all disabled:opacity-50 mt-2 text-xs uppercase tracking-widest" disabled={!newMovement.staffId}>Simpan Rekod</button>
             </form>
           </div>
         </div>
       )}
 
-      {showPrintOptions && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden text-slate-800">
-             <div className="p-6 border-b flex justify-between items-center bg-slate-50/80 text-slate-800 text-left shrink-0">
-              <div className="text-left uppercase font-black tracking-tight leading-tight"><h3 className="text-lg leading-none">Cetak Laporan</h3></div>
-              <button onClick={() => setShowPrintOptions(false)} className="p-2 bg-white rounded-full border shadow-sm shrink-0"><X size={20} /></button>
-            </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto no-scrollbar text-slate-800 text-left">
-               {shiftDefinitions.map(def => (
-                <div key={def.id} onClick={() => togglePrintShift(def.id)} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 transition-all mb-2 ${selectedPrintShifts.includes(def.id) ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-white'}`}>
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 shrink-0 ${selectedPrintShifts.includes(def.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200'}`}>{selectedPrintShifts.includes(def.id) && <Check size={12} strokeWidth={4} />}</div>
-                  <div className="text-xs font-black uppercase text-slate-800 text-left truncate">{String(def.label)}</div>
-                </div>
-               ))}
-            </div>
-            <div className="p-6 bg-slate-50 border-t"><button onClick={handlePrintAction} disabled={selectedPrintShifts.length === 0} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all leading-none">Proses Cetakan</button></div>
-          </div>
-        </div>
+      {selectedPrintShifts && (
+        <div className="hidden">Print Options Logic Dihapus Untuk Kod Bersih</div>
       )}
 
       {selectedDate && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 bg-slate-900/50 backdrop-blur-md animate-in fade-in no-print text-slate-800">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 bg-slate-900/50 backdrop-blur-md animate-in fade-in no-print text-slate-800 leading-none">
           <div className="bg-white w-full max-w-xl rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col text-slate-800">
-            <div className="p-6 border-b flex justify-between items-center bg-slate-50/80 gap-4 text-slate-800 shrink-0 text-left">
-              <div className="text-left text-slate-800 uppercase font-black leading-tight text-left"><h3 className="text-lg leading-none text-left">Atur Jadual</h3><p className={`font-bold text-[9px] ${holidays[selectedDate] ? 'text-red-500' : 'text-slate-500'} mt-1 tracking-widest text-left`}>📅 {new Date(selectedDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50/80 gap-4 text-slate-800 shrink-0 text-left leading-tight">
+              <div className="text-left text-slate-800 uppercase font-black tracking-tight leading-tight"><h3 className="text-lg leading-none">Atur Jadual</h3><p className={`font-bold text-[9px] ${holidays[selectedDate] ? 'text-red-500' : 'text-slate-500'} mt-1 tracking-widest`}>📅 {new Date(selectedDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
               <button onClick={() => setSelectedDate(null)} className="p-2 bg-white hover:bg-slate-100 rounded-full shadow-sm border shrink-0"><X size={20} /></button>
             </div>
-            <div className="p-4 md:p-6 overflow-y-auto no-scrollbar flex-1 text-slate-800 text-left">
+            <div className="p-4 md:p-6 overflow-y-auto no-scrollbar flex-1 text-slate-800 text-left leading-none">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-800 text-left">
                 {shiftDefinitions.map(type => (
-                  <div key={type.id} className="p-4 rounded-2xl border bg-slate-50 shadow-sm text-slate-800 text-left">
+                  <div key={type.id} className="p-4 rounded-2xl border bg-slate-50 shadow-sm text-slate-800 text-left leading-none">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b text-slate-800 font-black"><div className="flex items-center gap-2 text-[10px]"><div className={`w-2.5 h-2.5 rounded-full ${getShiftColor(type.color, 'bg')}`}></div>{String(type.label)}</div><span className="text-[10px] bg-white px-2 py-0.5 rounded-full border">{(shifts[selectedDate]?.[type.id] || []).length}</span></div>
                     <div className="relative mb-3"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} /><input type="text" value={modalSearchTerms[type.id] || ""} onChange={(e) => setModalSearchTerms({...modalSearchTerms, [type.id]: e.target.value})} placeholder="Cari..." className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg font-bold text-[10px] outline-none text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1.5 text-left text-slate-800">
-                      {(shifts[selectedDate]?.[type.id] || []).map(st => (<div key={st.staffId} onClick={() => toggleStaffOnShift(selectedDate, type.id, st.staffId)} className={`p-2 rounded-xl bg-white border shadow-sm flex items-center justify-between transition-all cursor-pointer hover:bg-red-50 hover:border-red-200 text-slate-800 text-left uppercase`}><span className="text-[10px] font-black uppercase truncate">{String(st.staffName)}</span><CheckCircle2 size={14} className="text-emerald-500" /></div>))}
-                      {staff.filter(s => String(s.name || '').toUpperCase().includes((modalSearchTerms[type.id] || '').toUpperCase()) && !(shifts[selectedDate]?.[type.id] || []).some(a => a.staffId === s.id)).slice(0, 5).map(s => (<div key={s.id} onClick={() => toggleStaffOnShift(selectedDate, type.id, s.id)} className="p-2 rounded-xl border border-dashed border-slate-200 flex items-center justify-between cursor-pointer opacity-60 hover:opacity-100 hover:bg-blue-50 text-slate-800 text-left uppercase"><span className="text-[10px] uppercase font-bold">{String(s.name)}</span><Plus size={14} className="text-slate-300" /></div>))}
+                    <div className="space-y-1.5 text-left text-slate-800 leading-none">
+                      {(shifts[selectedDate]?.[type.id] || []).map(st => (<div key={st.staffId} onClick={() => toggleStaffOnShift(selectedDate, type.id, st.staffId)} className={`p-2 rounded-xl bg-white border shadow-sm flex items-center justify-between transition-all cursor-pointer hover:bg-red-50 hover:border-red-200 text-slate-800 text-left uppercase leading-none`}><span className="text-[10px] font-black uppercase truncate leading-none">{String(st.staffName)}</span><CheckCircle2 size={14} className="text-emerald-500 shrink-0" /></div>))}
+                      {staff.filter(s => String(s.name || '').toUpperCase().includes((modalSearchTerms[type.id] || '').toUpperCase()) && !(shifts[selectedDate]?.[type.id] || []).some(a => a.staffId === s.id)).slice(0, 5).map(s => (<div key={s.id} onClick={() => toggleStaffOnShift(selectedDate, type.id, s.id)} className="p-2 rounded-xl border border-dashed border-slate-200 flex items-center justify-between cursor-pointer opacity-60 hover:opacity-100 hover:bg-blue-50 text-slate-800 text-left uppercase leading-none"><span className="text-[10px] uppercase font-bold leading-none">{String(s.name)}</span><Plus size={14} className="text-slate-300 shrink-0" /></div>))}
                     </div>
                   </div>
                 ))}
@@ -814,12 +788,11 @@ const App = () => {
         </div>
       )}
 
-      {/* Modal Shift Def */}
       {showShiftDefModal && editingShiftDef && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden p-6 animate-in zoom-in-95 text-slate-800 flex flex-col">
-            <div className="flex justify-between items-center mb-5 text-slate-800 font-black uppercase text-lg text-left leading-none"><h3 className="text-left">Tetapan Syif</h3><button onClick={() => setShowShiftDefModal(false)} className="p-1"><X size={20} /></button></div>
-            <form onSubmit={saveShiftDef} className="space-y-4 text-slate-800 text-left">
+          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden p-6 animate-in zoom-in-95 text-slate-800 flex flex-col text-left leading-tight">
+            <div className="flex justify-between items-center mb-5 text-slate-800 font-black uppercase text-lg text-left leading-none"><h3>Tetapan Syif</h3><button onClick={() => setShowShiftDefModal(false)} className="p-1"><X size={20} /></button></div>
+            <form onSubmit={saveShiftDef} className="space-y-4 text-slate-800 text-left leading-none">
               <input type="text" value={editingShiftDef.label} onChange={(e) => setEditingShiftDef({...editingShiftDef, label: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none text-slate-700 text-sm shadow-inner" placeholder="Nama Syif..." required />
               <textarea rows={3} value={editingShiftDef.time} onChange={(e) => setEditingShiftDef({...editingShiftDef, time: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none resize-none text-slate-700 text-sm shadow-inner" placeholder="Waktu Bertugas..." />
               <div className="flex flex-wrap gap-2 pt-1 text-slate-800 text-left">{COLOR_OPTIONS.map(c => (<button key={c.id} type="button" onClick={() => setEditingShiftDef({...editingShiftDef, color: c.id})} className={`w-8 h-8 rounded-lg border-4 ${c.bg} ${editingShiftDef.color === c.id ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent'}`} />))}</div>
@@ -829,22 +802,21 @@ const App = () => {
         </div>
       )}
 
-      {/* Modal Staf */}
       {showStaffModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden p-6 animate-in slide-in-from-bottom-8">
-            <div className="flex justify-between items-center mb-5 text-slate-800 font-black uppercase text-lg text-left leading-none"><h3 className="text-left">{newStaff.id ? 'Edit Staf' : 'Tambah Staf'}</h3><button onClick={() => setShowStaffModal(false)} className="p-1"><X size={20} /></button></div>
-            <form onSubmit={saveStaff} className="space-y-4 text-slate-800 text-left">
-              <input autoFocus type="text" value={newStaff.name} onChange={(e) => setNewStaff({...newStaff, name: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-inner text-sm uppercase" placeholder="Nama Penuh..." required />
-              <input type="tel" value={newStaff.phone} onChange={(e) => setNewStaff({...newStaff, phone: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-inner text-sm uppercase" placeholder="WhatsApp..." />
-              <input type="text" value={newStaff.unit} onChange={(e) => setNewStaff({...newStaff, unit: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-inner text-sm uppercase" placeholder="Unit..." />
+          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden p-6 animate-in slide-in-from-bottom-8 text-left leading-tight">
+            <div className="flex justify-between items-center mb-5 text-slate-800 font-black uppercase text-lg text-left leading-none"><h3>{newStaff.id ? 'Edit Staf' : 'Tambah Staf'}</h3><button onClick={() => setShowStaffModal(false)} className="p-1"><X size={20} /></button></div>
+            <form onSubmit={saveStaff} className="space-y-4 text-slate-800 text-left leading-none">
+              <input autoFocus type="text" value={newStaff.name} onChange={(e) => setNewStaff({...newStaff, name: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-inner text-sm uppercase leading-none" placeholder="Nama Penuh..." required />
+              <input type="tel" value={newStaff.phone} onChange={(e) => setNewStaff({...newStaff, phone: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-inner text-sm uppercase leading-none" placeholder="WhatsApp..." />
+              <input type="text" value={newStaff.unit} onChange={(e) => setNewStaff({...newStaff, unit: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-inner text-sm uppercase leading-none" placeholder="Unit..." />
               <button type="submit" className="w-full py-4 bg-blue-600 text-white font-black rounded-xl shadow-lg active:scale-95 transition-all text-xs uppercase tracking-widest mt-2 leading-none">Simpan Staf</button>
             </form>
           </div>
         </div>
       )}
 
-      <div className="h-4 flex-none"></div>
+      <div className="h-4 flex-none shrink-0"></div>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
