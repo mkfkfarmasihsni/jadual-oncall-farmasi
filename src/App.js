@@ -57,8 +57,10 @@ const getSafeFirebaseConfig = () => {
     if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_FIREBASE_CONFIG) {
       return JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
     }
-    if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-      return JSON.parse(__firebase_config);
+    // Akses melalui window untuk mengelakkan ralat ESLint no-undef
+    const globalConfig = typeof window !== 'undefined' ? window.__firebase_config : undefined;
+    if (globalConfig) {
+      return JSON.parse(globalConfig);
     }
   } catch (e) {
     console.error("Firebase config error:", e);
@@ -77,7 +79,9 @@ const getSafeAppId = () => {
   if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_ID) {
     return process.env.REACT_APP_ID;
   }
-  return typeof __app_id !== 'undefined' ? __app_id : 'pharmacy-oncall-2026';
+  // Akses melalui window untuk mengelakkan ralat ESLint no-undef
+  const globalAppId = typeof window !== 'undefined' ? window.__app_id : undefined;
+  return globalAppId || 'pharmacy-oncall-2026';
 };
 
 const firebaseConfig = getSafeFirebaseConfig();
@@ -167,8 +171,10 @@ const App = () => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
+        // Akses token melalui window untuk mengelakkan ralat ESLint no-undef
+        const authToken = typeof window !== 'undefined' ? window.__initial_auth_token : undefined;
+        if (authToken) {
+          await signInWithCustomToken(auth, authToken);
         } else {
           await signInAnonymously(auth);
         }
@@ -195,7 +201,6 @@ const App = () => {
 
     const unsubShiftDef = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), (snapshot) => {
       let defs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (defs.length === 0) setupDefaultShifts();
       const sorted = defs.sort((a,b) => (a.order || 0) - (b.order || 0));
       setShiftDefinitions(sorted);
       if (selectedPrintShifts.length === 0) setSelectedPrintShifts(sorted.map(sh => sh.id));
@@ -221,17 +226,7 @@ const App = () => {
     return () => {
       unsubStaff(); unsubShifts(); unsubShiftDef(); unsubSettings(); unsubHolidays(); unsubMovements();
     };
-  }, [user]);
-
-  const setupDefaultShifts = async () => {
-    if (!user) return;
-    const defaults = [
-      { label: 'Night Shift FK', time: '11PM-8AM', color: 'indigo', order: 1 },
-      { label: 'Evening Shift', time: '2PM-11PM', color: 'orange', order: 2 },
-      { label: 'Lunch Call PF/PRP', time: '1PM-2PM', color: 'emerald', order: 3 },
-    ];
-    for (const d of defaults) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shiftDefinitions'), d);
-  };
+  }, [user, selectedPrintShifts.length]);
 
   // --- Handlers ---
   const saveStaff = async (e) => {
@@ -357,26 +352,6 @@ const App = () => {
     });
     return { name: matchedStaff.name, unit: matchedStaff.unit, count, id: matchedStaff.id };
   }, [shifts, searchTerm, currentMonth, staff]);
-
-  const individualDutyList = useMemo(() => {
-    if (!filteredStats) return [];
-    const list = [];
-    const yearMonth = formatLocalDate(currentMonth.getFullYear(), currentMonth.getMonth(), 1).substring(0, 7);
-    Object.keys(shifts).sort().forEach(dateStr => {
-      if (dateStr.startsWith(yearMonth)) {
-        Object.keys(shifts[dateStr]).forEach(shiftId => {
-          if (selectedPrintShifts.includes(shiftId)) {
-            const listStaff = shifts[dateStr][shiftId];
-            if (Array.isArray(listStaff) && listStaff.some(s => s.staffId === filteredStats.id)) {
-              const def = shiftDefinitions.find(d => d.id === shiftId);
-              list.push({ date: dateStr, shiftName: def?.label || shiftId, shiftTime: def?.time || '' });
-            }
-          }
-        });
-      }
-    });
-    return list;
-  }, [shifts, filteredStats, currentMonth, shiftDefinitions, selectedPrintShifts]);
 
   const filteredStaffDirectory = useMemo(() => {
     return staff
